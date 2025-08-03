@@ -459,6 +459,50 @@ impl RuffleHandle {
         });
     }
 
+    /// Flash Player 6 legacy GetVariable method
+    pub fn get_variable(&self, path: &str) -> JsValue {
+        tracing::info!("GetVariable called with path: {}", path);
+
+        self.with_core_mut(|player| {
+            let result = player.get_variable(path);
+            external_to_js_value(result)
+        }).unwrap_or(JsValue::UNDEFINED)
+    }
+
+    /// Flash Player 6 legacy SetVariable method
+    pub fn set_variable(&self, path: &str, value: JsValue) -> bool {
+        tracing::info!("SetVariable called with path: {}, value: {:?}", path, value);
+
+        self.with_core_mut(|player| {
+            let external_value = js_to_external_value(&value);
+            player.set_variable(path, external_value)
+        }).unwrap_or(false)
+    }
+
+    /// Flash Player 6 legacy CallFunction method
+    pub fn call_function(&self, path: &str, args: Box<[JsValue]>) -> JsValue {
+        tracing::info!("CallFunction called with path: {}, args: {:?}", path, args);
+
+        self.with_core_mut(|player| {
+            let external_args: Vec<ruffle_core::external::Value> = args
+                .iter()
+                .map(|arg| js_to_external_value(arg))
+                .collect();
+
+            let result = player.call_function(path, external_args);
+            external_to_js_value(result)
+        }).unwrap_or(JsValue::UNDEFINED)
+    }
+
+    /// Flash Player 6 legacy SetCallback method for event handling
+    pub fn set_callback(&self, flash_object_path: &str, event_name: &str, callback_id: &str) -> bool {
+        tracing::info!("SetCallback called with object: {}, event: {}, callback: {}", flash_object_path, event_name, callback_id);
+
+        self.with_core_mut(|player| {
+            player.set_callback(flash_object_path, event_name, callback_id)
+        }).unwrap_or(false)
+    }
+
     /// Returns the web AudioContext used by this player.
     /// Returns `None` if the audio backend does not use Web Audio.
     pub fn audio_context(&self) -> Option<web_sys::AudioContext> {

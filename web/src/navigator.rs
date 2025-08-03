@@ -338,6 +338,19 @@ impl NavigatorBackend for WebNavigatorBackend {
         };
 
         Box::pin(async move {
+            // Redirect AMF gateway calls to drinkBeats server (CORS is handled by server)
+            let url_str = url.as_str();
+            let redirected_url = if url_str.contains("localhost:8000/sf/gateway") {
+                let new_url = url_str.replace("localhost:8000", "127.0.0.1:80");
+                tracing::warn!("🔄 REDIRECTING AMF to drinkBeats: {} -> {}", url_str, new_url);
+                new_url
+            } else {
+                url_str.to_string()
+            };
+
+            // Log ALL HTTP requests
+            tracing::warn!("🌐 HTTP REQUEST: {} {}", request.method(), redirected_url);
+
             let init = RequestInit::new();
 
             init.set_method(&request.method().to_string());
@@ -363,12 +376,12 @@ impl NavigatorBackend for WebNavigatorBackend {
                 init.set_body(&blob);
             }
 
-            let web_request = match WebRequest::new_with_str_and_init(url.as_str(), &init) {
+            let web_request = match WebRequest::new_with_str_and_init(&redirected_url, &init) {
                 Ok(web_request) => web_request,
                 Err(_) => {
                     return create_specific_fetch_error(
                         "Unable to create request for",
-                        url.as_str(),
+                        &redirected_url,
                         "",
                     );
                 }

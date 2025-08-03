@@ -165,6 +165,24 @@ export class RufflePlayerElement extends HTMLElement implements PlayerElement {
         }
     }
 
+    public GetVariable(path: string): any {
+        // Flash Player 6 legacy interface - bridge to Rust core
+        console.log(`GetVariable called with path: ${path}`);
+        return this.#inner.getVariable(path);
+    }
+
+    public SetVariable(path: string, value: any): boolean {
+        // Flash Player 6 legacy interface - bridge to Rust core
+        console.log(`SetVariable called with path: ${path}, value:`, value);
+        return this.#inner.setVariable(path, value);
+    }
+
+    public CallFunction(path: string, args: any[] = []): any {
+        // Flash Player 6 legacy interface - bridge to Rust core
+        console.log(`CallFunction called with path: ${path}, args:`, args);
+        return this.#inner.callFunction(path, args);
+    }
+
     get config(): URLLoadOptions | DataLoadOptions | object {
         return this.#inner.config;
     }

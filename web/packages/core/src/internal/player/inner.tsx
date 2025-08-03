@@ -1887,6 +1887,22 @@ export class InnerPlayer {
         return this.instance?.call_exposed_callback(name, args);
     }
 
+    public getVariable(path: string): any {
+        return this.instance?.get_variable(path);
+    }
+
+    public setVariable(path: string, value: any): boolean {
+        return this.instance?.set_variable(path, value) ?? false;
+    }
+
+    public callFunction(path: string, args: any[]): any {
+        return this.instance?.call_function(path, args);
+    }
+
+    public setCallback(flashObjectPath: string, eventName: string, callbackId: string): boolean {
+        return this.instance?.set_callback(flashObjectPath, eventName, callbackId) ?? false;
+    }
+
     protected getObjectId(): string | null {
         return this.element.getAttribute("name");
     }

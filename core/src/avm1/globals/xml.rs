@@ -506,6 +506,11 @@ fn spawn_xml_fetch<'gc>(
 ) -> Result<Value<'gc>, Error<'gc>> {
     let url = url.to_utf8_lossy().into_owned();
 
+    // Log XML.load/send calls
+    let method = if send_object.is_some() { "send" } else { "load" };
+    let trace_msg = format!("🌐 XML.{}() called with URL: '{}'", method, url);
+    activation.context.avm_trace(&trace_msg);
+
     let request = if let Some(node) = send_object {
         // Send `node` as string.
         let string = node.into_string(activation)?;

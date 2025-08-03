@@ -92,6 +92,10 @@ fn load<'gc>(
         None => return Ok(false.into()),
     };
 
+    // Log LoadVars.load calls
+    let trace_msg = format!("🌐 LoadVars.load() called with URL: '{}'", url);
+    activation.context.avm_trace(&trace_msg);
+
     spawn_load_var_fetch(activation, this, url, None)?;
 
     Ok(true.into())
@@ -202,6 +206,10 @@ fn send_and_load<'gc>(
         .unwrap_or(&Value::Undefined)
         .coerce_to_string(activation)?;
     let method = NavigationMethod::from_method_str(&method_name).unwrap_or(NavigationMethod::Post);
+
+    // Log LoadVars.sendAndLoad calls
+    let trace_msg = format!("🌐 LoadVars.sendAndLoad() called with URL: '{}' method: '{}'", url, method_name);
+    activation.context.avm_trace(&trace_msg);
 
     spawn_load_var_fetch(activation, target, url, Some((this, method)))?;
 
