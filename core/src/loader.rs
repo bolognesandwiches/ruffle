@@ -1447,6 +1447,20 @@ impl<'gc> Loader<'gc> {
                         } else {
                             AvmString::new_utf8(activation.gc(), UTF_8.decode(&body).0).into()
                         };
+
+                        // Add debugging for XML onData calls
+                        let data_preview = if let Value::String(s) = value_data {
+                            let preview = s.to_string();
+                            if preview.len() > 100 {
+                                format!("{}...", &preview[..100])
+                            } else {
+                                preview
+                            }
+                        } else {
+                            "undefined".to_string()
+                        };
+                        tracing::info!("🔍 Calling onData on object with data: {}", data_preview);
+
                         let _ = that.call_method(
                             istr!("onData"),
                             &[value_data],
@@ -1472,6 +1486,7 @@ impl<'gc> Loader<'gc> {
                         );
 
                         // Fire the onData method with no data to indicate an unsuccessful load.
+                        tracing::info!("🔍 Calling onData on object with undefined data (error case)");
                         let _ = that.call_method(
                             istr!("onData"),
                             &[Value::Undefined],

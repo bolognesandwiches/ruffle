@@ -338,15 +338,8 @@ impl NavigatorBackend for WebNavigatorBackend {
         };
 
         Box::pin(async move {
-            // Redirect AMF gateway calls to drinkBeats server (CORS is handled by server)
-            let url_str = url.as_str();
-            let redirected_url = if url_str.contains("localhost:8000/sf/gateway") {
-                let new_url = url_str.replace("localhost:8000", "127.0.0.1:80");
-                tracing::warn!("🔄 REDIRECTING AMF to drinkBeats: {} -> {}", url_str, new_url);
-                new_url
-            } else {
-                url_str.to_string()
-            };
+            // Use the URL as-is - React proxy will handle /sf/gateway requests
+            let redirected_url = url.as_str().to_string();
 
             // Log ALL HTTP requests
             tracing::warn!("🌐 HTTP REQUEST: {} {}", request.method(), redirected_url);

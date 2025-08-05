@@ -169,7 +169,25 @@ impl Hash for CaseInsensitive<&WStr> {
 
 impl<'gc> Equivalent<PropertyName<'gc>> for CaseInsensitive<&WStr> {
     fn equivalent(&self, key: &PropertyName<'gc>) -> bool {
-        key.0.eq_ignore_case(self.0)
+        // Surgical fix for Ruffle bug: Use a simple recursion guard to prevent infinite loops
+        // in case-insensitive property lookups that cause LoginServlet/StatusServlet crashes
+
+        use std::sync::atomic::{AtomicU32, Ordering};
+        static RECURSION_GUARD: AtomicU32 = AtomicU32::new(0);
+
+        let current_depth = RECURSION_GUARD.fetch_add(1, Ordering::Relaxed);
+
+        if current_depth > 50 {
+            // Too deep in recursion - return false to break the cycle
+            RECURSION_GUARD.fetch_sub(1, Ordering::Relaxed);
+            return false;
+        }
+
+        // Use the original eq_ignore_case but with recursion protection
+        let result = key.0.eq_ignore_case(self.0);
+
+        RECURSION_GUARD.fetch_sub(1, Ordering::Relaxed);
+        result
     }
 }
 

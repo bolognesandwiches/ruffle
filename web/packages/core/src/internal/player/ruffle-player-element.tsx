@@ -183,6 +183,12 @@ export class RufflePlayerElement extends HTMLElement implements PlayerElement {
         return this.#inner.callFunction(path, args);
     }
 
+    public SetCallback(flashObjectPath: string, eventName: string, callbackId: string): boolean {
+        // Flash Player 6 legacy interface - bridge to Rust core
+        console.log(`SetCallback called with object: ${flashObjectPath}, event: ${eventName}, callback: ${callbackId}`);
+        return this.#inner.setCallback(flashObjectPath, eventName, callbackId);
+    }
+
     get config(): URLLoadOptions | DataLoadOptions | object {
         return this.#inner.config;
     }

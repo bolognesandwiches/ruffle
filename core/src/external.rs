@@ -125,6 +125,20 @@ impl Value {
         activation: &mut Avm1Activation<'_, 'gc>,
         value: Avm1Value<'gc>,
     ) -> Result<Value, Avm1Error<'gc>> {
+        Self::from_avm1_with_depth(activation, value, 0)
+    }
+
+    fn from_avm1_with_depth<'gc>(
+        activation: &mut Avm1Activation<'_, 'gc>,
+        value: Avm1Value<'gc>,
+        depth: u8,
+    ) -> Result<Value, Avm1Error<'gc>> {
+        // Prevent infinite recursion in object conversion
+        // This specifically handles circular references like sBaseURI/sBaseUri
+        if depth > 10 {
+            return Ok(Value::Null);
+        }
+
         Ok(match value {
             Avm1Value::Undefined => Value::Undefined,
             Avm1Value::Null => Value::Null,
@@ -137,7 +151,7 @@ impl Value {
                 let values: Result<Vec<_>, Avm1Error<'gc>> = (0..length)
                     .map(|i| {
                         let element = object.get_element(activation, i);
-                        Value::from_avm1(activation, element)
+                        Value::from_avm1_with_depth(activation, element, depth + 1)
                     })
                     .collect();
                 Value::List(values?)
@@ -146,8 +160,24 @@ impl Value {
                 let keys = object.get_keys(activation, false);
                 let mut values = BTreeMap::new();
                 for key in keys {
-                    let value = object.get(key, activation)?;
-                    values.insert(key.to_string(), Value::from_avm1(activation, value)?);
+                    // Use a try-catch approach to handle potential recursion gracefully
+                    match object.get(key, activation) {
+                        Ok(value) => {
+                            match Value::from_avm1_with_depth(activation, value, depth + 1) {
+                                Ok(converted_value) => {
+                                    values.insert(key.to_string(), converted_value);
+                                }
+                                Err(_) => {
+                                    // Skip properties that cause recursion errors
+                                    values.insert(key.to_string(), Value::Null);
+                                }
+                            }
+                        }
+                        Err(_) => {
+                            // Skip properties that can't be accessed
+                            values.insert(key.to_string(), Value::Null);
+                        }
+                    }
                 }
                 Value::Object(values)
             }

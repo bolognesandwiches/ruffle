@@ -640,6 +640,10 @@ pub fn create_globals<'gc>(
     let netconnection = netconnection::create_class(context, netconnection_proto, function_proto);
     let xml_socket = xml_socket::create_class(context, xml_socket_proto, function_proto);
 
+    // Flash Remoting objects
+    let xml_manager = xml::create_xml_manager_constructor(context, object_proto, function_proto);
+    let status_servlet = xml::create_status_servlet_constructor(context, xml_manager, function_proto);
+
     let flash = Object::new(context, Some(object_proto));
 
     let geom = Object::new(context, Some(object_proto));
@@ -822,6 +826,8 @@ pub fn create_globals<'gc>(
         (globals, b"TextFormat", text_format, Attribute::DONT_ENUM),
         (globals, b"XMLNode", xmlnode, Attribute::DONT_ENUM),
         (globals, b"XML", xml, Attribute::DONT_ENUM),
+        (globals, b"XMLManager", xml_manager, Attribute::DONT_ENUM),
+        (globals, b"StatusServlet", status_servlet, Attribute::DONT_ENUM),
         (globals, b"String", string, Attribute::DONT_ENUM),
         (globals, b"Number", number, Attribute::DONT_ENUM),
         (globals, b"Boolean", boolean, Attribute::DONT_ENUM),

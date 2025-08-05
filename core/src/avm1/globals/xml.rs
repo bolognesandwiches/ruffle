@@ -416,6 +416,74 @@ fn on_data<'gc>(
 ) -> Result<Value<'gc>, Error<'gc>> {
     let src = args.get(0).cloned().unwrap_or(Value::Undefined);
 
+    // Check if this object has a custom onData property (not from prototype)
+    if this.has_own_property(activation, istr!("onData")) {
+        // Get the custom onData function
+        if let Ok(custom_on_data) = this.get(istr!("onData"), activation) {
+            if let Value::Object(custom_func) = custom_on_data {
+                // Call the custom onData function instead of default implementation
+                tracing::info!("🔍 Calling custom onData function instead of default XML onData");
+                return custom_func.call(istr!("onData"), activation, this.into(), args);
+            }
+        }
+    }
+
+    // Check if this XML object has a _creator (XMLManager case)
+    let creator_name = AvmString::new_utf8(activation.gc(), "_creator");
+    if let Ok(creator_value) = this.get(creator_name, activation) {
+        if let Value::Object(creator_obj) = creator_value {
+            tracing::info!("🎯 XML.onData: Found _creator, handling as XMLManager XML object");
+
+            // This is an XMLManager's XML object, handle it like XMLManager.onData
+            if let Value::String(xml_data) = src {
+                let xml_str = xml_data.to_string();
+                tracing::info!("🎯 XML.onData (XMLManager): Received XML data: {}", xml_str);
+
+                if xml_str.is_empty() || !xml_str.starts_with('<') {
+                    tracing::error!("🎯 XML.onData (XMLManager): Invalid XML data");
+                    // Call returnError on the creator
+                    let error_method = AvmString::new_utf8(activation.gc(), "returnError");
+                    creator_obj.call_method(error_method, &[], activation, ExecutionReason::FunctionCall)?;
+                    return Ok(Value::Undefined);
+                }
+
+                // Parse the XML by calling parseXML on this XML object
+                let parse_xml_method = AvmString::new_utf8(activation.gc(), "parseXML");
+                this.call_method(parse_xml_method, &[xml_data.into()], activation, ExecutionReason::FunctionCall)?;
+
+                // Get the status of the XML parsing
+                let status = this.get(AvmString::new_utf8(activation.gc(), "status"), activation)?;
+
+                // Call onLoad on the creator with (status, this, data)
+                let on_load_method = AvmString::new_utf8(activation.gc(), "onLoad");
+                tracing::info!("🎯 XML.onData: About to call creator.onLoad with status: {:?}", status);
+                creator_obj.call_method(on_load_method, &[status, this.into(), xml_data.into()], activation, ExecutionReason::FunctionCall)?;
+
+                tracing::info!("🎯 XML.onData (XMLManager): Successfully processed XML and called onLoad");
+                return Ok(Value::Undefined);
+            } else {
+                tracing::error!("🎯 XML.onData (XMLManager): No valid data received");
+                // Call returnError on the creator
+                let error_method = AvmString::new_utf8(activation.gc(), "returnError");
+                creator_obj.call_method(error_method, &[], activation, ExecutionReason::FunctionCall)?;
+                return Ok(Value::Undefined);
+            }
+        }
+    }
+
+    // Add debugging to see if this default onData is being called
+    let data_preview = if let Value::String(s) = src {
+        let preview = s.to_string();
+        if preview.len() > 100 {
+            format!("{}...", &preview[..100])
+        } else {
+            preview
+        }
+    } else {
+        "undefined".to_string()
+    };
+    tracing::info!("🔍 XML default onData() called with: {}", data_preview);
+
     if let Value::Undefined = src {
         this.call_method(
             istr!("onLoad"),
@@ -584,4 +652,192 @@ pub fn create_constructor<'gc>(
     let xml_proto = Object::new(context, Some(proto));
     define_properties_on(PROTO_DECLS, context, xml_proto, fn_proto);
     FunctionObject::constructor(context, constructor, None, fn_proto, xml_proto)
+}
+
+/// XMLManager constructor for Flash Remoting objects
+fn xml_manager_constructor<'gc>(
+    activation: &mut Activation<'_, 'gc>,
+    this: Object<'gc>,
+    _args: &[Value<'gc>],
+) -> Result<Value<'gc>, Error<'gc>> {
+    tracing::info!("🎯 XMLManager constructor called - creating _oXml object");
+
+    // Create the XML object that XMLManager needs
+    let xml_constructor = activation.context.avm1.prototypes().xml_constructor;
+    let xml_object = xml_constructor.construct(activation, &[])?;
+
+    if let Value::Object(xml_obj) = xml_object {
+        // Set the _oXml property on this XMLManager instance
+        let oxml_name = AvmString::new_utf8(activation.gc(), "_oXml");
+        this.set(oxml_name, xml_obj.into(), activation)?;
+
+        // Set ignoreWhite = true (like original Flash code)
+        let ignore_white_name = AvmString::new_utf8(activation.gc(), "ignoreWhite");
+        xml_obj.set(ignore_white_name, true.into(), activation)?;
+
+        // Set _creator to point back to this XMLManager instance
+        let creator_name = AvmString::new_utf8(activation.gc(), "_creator");
+        xml_obj.set(creator_name, this.into(), activation)?;
+
+        // Set up the onData handler to point to this XMLManager's onData method
+        let this_on_data = this.get(istr!("onData"), activation)?;
+        xml_obj.set(istr!("onData"), this_on_data, activation)?;
+
+        tracing::info!("🎯 XMLManager constructor: Created _oXml, set ignoreWhite=true, _creator, and onData handler");
+    } else {
+        tracing::error!("🎯 XMLManager constructor: Failed to create XML object");
+    }
+
+    Ok(this.into())
+}
+
+/// StatusServlet constructor for Flash Remoting objects
+fn status_servlet_constructor<'gc>(
+    activation: &mut Activation<'_, 'gc>,
+    this: Object<'gc>,
+    args: &[Value<'gc>],
+) -> Result<Value<'gc>, Error<'gc>> {
+    tracing::info!("🎯 StatusServlet constructor called");
+
+    // Call XMLManager constructor (super class)
+    xml_manager_constructor(activation, this, args)?;
+
+    // Set StatusServlet-specific properties
+    let base_uri = args.get(0).unwrap_or(&Value::Undefined);
+    let base_uri_name = AvmString::new_utf8(activation.gc(), "sBaseURI");
+    let servlet_name_name = AvmString::new_utf8(activation.gc(), "sServletName");
+    let servlet_name_value = AvmString::new_utf8(activation.gc(), "/sf/status");
+
+    this.set(base_uri_name, *base_uri, activation)?;
+    this.set(servlet_name_name, servlet_name_value.into(), activation)?;
+
+    tracing::info!("🎯 StatusServlet constructor: Set sBaseURI and sServletName");
+
+    Ok(this.into())
+}
+
+/// Create XMLManager constructor
+pub fn create_xml_manager_constructor<'gc>(
+    context: &mut StringContext<'gc>,
+    proto: Object<'gc>,
+    fn_proto: Object<'gc>,
+) -> Object<'gc> {
+    let xml_manager_proto = Object::new(context, Some(proto));
+
+    // Add XMLManager methods to prototype
+    xml_manager_proto.define_value(
+        context.gc(),
+        istr!(context, "onData"),
+        FunctionObject::native(context, xml_manager_on_data, fn_proto, xml_manager_proto).into(),
+        Attribute::DONT_ENUM,
+    );
+
+    FunctionObject::constructor(context, xml_manager_constructor, None, fn_proto, xml_manager_proto)
+}
+
+/// Create StatusServlet constructor
+pub fn create_status_servlet_constructor<'gc>(
+    context: &mut StringContext<'gc>,
+    proto: Object<'gc>,
+    fn_proto: Object<'gc>,
+) -> Object<'gc> {
+    let status_servlet_proto = Object::new(context, Some(proto));
+
+    // Add StatusServlet methods to prototype
+    let get_status_name = AvmString::new_utf8(context.gc(), "GetStatus");
+    status_servlet_proto.define_value(
+        context.gc(),
+        get_status_name,
+        FunctionObject::native(context, status_servlet_get_status, fn_proto, status_servlet_proto).into(),
+        Attribute::DONT_ENUM,
+    );
+
+    FunctionObject::constructor(context, status_servlet_constructor, None, fn_proto, status_servlet_proto)
+}
+
+/// XMLManager.onData method
+fn xml_manager_on_data<'gc>(
+    activation: &mut Activation<'_, 'gc>,
+    this: Object<'gc>,
+    args: &[Value<'gc>],
+) -> Result<Value<'gc>, Error<'gc>> {
+    let data = args.get(0).unwrap_or(&Value::Undefined);
+    tracing::info!("🎯 XMLManager.onData called with data: {:?}", data);
+
+    // Get the _creator (XMLManager instance)
+    let creator = this.get(AvmString::new_utf8(activation.gc(), "_creator"), activation)?;
+
+    if let Value::Object(creator_obj) = creator {
+        // Check if data is valid (not null, not empty, starts with "<")
+        if let Value::String(xml_data) = data {
+            let xml_str = xml_data.to_string();
+            tracing::info!("🎯 XMLManager.onData: Received XML data: {}", xml_str);
+
+            if xml_str.is_empty() || !xml_str.starts_with('<') {
+                tracing::error!("🎯 XMLManager.onData: Invalid XML data");
+                // Call returnError on the creator
+                let error_method = AvmString::new_utf8(activation.gc(), "returnError");
+                creator_obj.call_method(error_method, &[], activation, ExecutionReason::FunctionCall)?;
+                return Ok(Value::Undefined);
+            }
+
+            // Parse the XML by calling parseXML on this XML object
+            let parse_xml_method = AvmString::new_utf8(activation.gc(), "parseXML");
+            this.call_method(parse_xml_method, &[(*xml_data).into()], activation, ExecutionReason::FunctionCall)?;
+
+            // Get the status of the XML parsing
+            let status = this.get(AvmString::new_utf8(activation.gc(), "status"), activation)?;
+
+            // Call onLoad on the creator with (status, this, data)
+            let on_load_method = AvmString::new_utf8(activation.gc(), "onLoad");
+            creator_obj.call_method(on_load_method, &[status, this.into(), (*xml_data).into()], activation, ExecutionReason::FunctionCall)?;
+
+            tracing::info!("🎯 XMLManager.onData: Successfully processed XML and called onLoad");
+        } else {
+            tracing::error!("🎯 XMLManager.onData: No valid data received");
+            // Call returnError on the creator
+            let error_method = AvmString::new_utf8(activation.gc(), "returnError");
+            creator_obj.call_method(error_method, &[], activation, ExecutionReason::FunctionCall)?;
+        }
+    } else {
+        tracing::error!("🎯 XMLManager.onData: No _creator found");
+    }
+
+    Ok(Value::Undefined)
+}
+
+/// StatusServlet.GetStatus method
+fn status_servlet_get_status<'gc>(
+    activation: &mut Activation<'_, 'gc>,
+    this: Object<'gc>,
+    args: &[Value<'gc>],
+) -> Result<Value<'gc>, Error<'gc>> {
+    let timestamp = args.get(0).unwrap_or(&Value::Undefined);
+    tracing::info!("🎯 StatusServlet.GetStatus called with timestamp: {:?}", timestamp);
+
+    // Get the XML object
+    let oxml_name = AvmString::new_utf8(activation.gc(), "_oXml");
+    let xml_object = this.get(oxml_name, activation)?;
+
+    if let Value::Object(xml_obj) = xml_object {
+        // Get base URI and construct URL
+        let base_uri_name = AvmString::new_utf8(activation.gc(), "sBaseURI");
+        let servlet_name_name = AvmString::new_utf8(activation.gc(), "sServletName");
+        let base_uri = this.get(base_uri_name, activation)?;
+        let servlet_name = this.get(servlet_name_name, activation)?;
+
+        if let (Value::String(base), Value::String(servlet)) = (base_uri, servlet_name) {
+            let url = format!("{}{}?timestamp={}", base, servlet, timestamp.coerce_to_string(activation)?);
+            tracing::info!("🎯 StatusServlet.GetStatus: Loading URL: {}", url);
+
+            // Call XML.load() to make the HTTP request
+            let load_name = AvmString::new_utf8(activation.gc(), "load");
+            let url_value = AvmString::new_utf8(activation.gc(), &url);
+            xml_obj.call_method(load_name, &[url_value.into()], activation, ExecutionReason::FunctionCall)?;
+        }
+    } else {
+        tracing::error!("🎯 StatusServlet.GetStatus: _oXml is missing!");
+    }
+
+    Ok(Value::Undefined)
 }

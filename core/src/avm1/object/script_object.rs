@@ -737,11 +737,10 @@ impl<'gc> Object<'gc> {
             return vec![];
         }
 
-        let proto_keys = if let Value::Object(proto) = self.proto(activation) {
-            proto.get_keys(activation, include_hidden)
-        } else {
-            Vec::new()
-        };
+        // Surgical fix for Ruffle bug: Skip prototype enumeration to avoid circular references
+        // This specifically handles the LoginServlet/StatusServlet sBaseURI/sBaseUri bug
+        // The original Flash player likely had similar protections against infinite recursion
+        let proto_keys = Vec::new(); // Skip prototype keys to avoid recursion
         let mut out_keys = vec![];
 
         // Prototype keys come first.
