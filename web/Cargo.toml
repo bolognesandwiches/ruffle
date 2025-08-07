@@ -22,6 +22,7 @@ default = ["canvas", "console_error_panic_hook", "webgl", "wgpu-webgl", "webgpu"
 avm_debug = ["ruffle_core/avm_debug"]
 lzma = ["ruffle_core/lzma"]
 jpegxr = ["ruffle_core/jpegxr"]
+bridge = ["ruffle_core/bridge"]
 
 # web features
 canvas = ["ruffle_render_canvas"]

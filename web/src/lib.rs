@@ -1419,4 +1419,5 @@ fn global_init() {
     }));
 
     tracing::info!("Ruffle WASM module has been initialized");
+    tracing::info!("🔧 CUSTOM RUFFLE BUILD LOADED - Stack overflow fixes active!");
 }

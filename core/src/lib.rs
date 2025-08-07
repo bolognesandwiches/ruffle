@@ -48,6 +48,8 @@ pub mod timer;
 mod types;
 pub mod utils;
 mod vminterface;
+#[cfg(feature = "bridge")]
+pub mod bridge_integration;
 mod xml;
 
 pub mod backend;

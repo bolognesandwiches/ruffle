@@ -43,4 +43,15 @@ export interface FlashAPI {
      * @returns The function result, or undefined if call failed
      */
     CallFunction(path: string, args?: any[]): any;
+
+    /**
+     * Sets a callback for Flash events using Flash Player 6 legacy interface.
+     * Allows registration of JavaScript handlers for Flash ActionScript events.
+     *
+     * @param flashObjectPath The Flash object path (e.g., "_root.oDenizenManager")
+     * @param eventName The event name to listen for (e.g., "beanCreated")
+     * @param callbackId The callback identifier for the handler
+     * @returns true if callback was registered successfully, false otherwise
+     */
+    SetCallback(flashObjectPath: string, eventName: string, callbackId: string): boolean;
 }

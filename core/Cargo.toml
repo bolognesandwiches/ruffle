@@ -20,6 +20,7 @@ gc-arena = { package = "ruffle_gc_arena", path = "../ruffle_gc_arena" }
 slotmap = { workspace = true }
 indexmap = { workspace = true }
 tracing = { workspace = true }
+log = { workspace = true }
 ruffle_render = { path = "../render", features = ["tessellator"] }
 ruffle_video = { path = "../video" }
 ruffle_macros = { path = "macros" }
@@ -48,6 +49,7 @@ dasp = { version = "0.11.0", features = ["interpolate", "interpolate-linear", "s
 symphonia = { version = "0.5.4", default-features = false, optional = true }
 enumset = "1.1.7"
 bytemuck = { workspace = true, features = ["derive"] }
+
 clap = { workspace = true, optional=true }
 realfft = "3.5.0"
 hashbrown = { version = "0.14.5", features = ["raw"] }
@@ -72,8 +74,18 @@ tracy-client = { version = "0.17.6", optional = true, default-features = false }
 [target.'cfg(not(target_family = "wasm"))'.dependencies.futures]
 workspace = true
 
+[target.'cfg(not(target_family = "wasm"))'.dependencies.vm-bridge]
+path = "../../vm-bridge"
+optional = true
+
 [target.'cfg(target_family = "wasm")'.dependencies.wasm-bindgen-futures]
 version = "0.4.50"
+
+[target.'cfg(target_family = "wasm")'.dependencies.vm-bridge]
+path = "../../vm-bridge"
+default-features = false
+features = ["wasm"]
+optional = true
 
 [features]
 default = []
@@ -92,6 +104,7 @@ egui = ["dep:egui", "dep:egui_extras", "png"]
 jpegxr = ["dep:jpegxr", "lzma"]
 default_font = []
 serde = ["serde/derive"]
+bridge = ["vm-bridge"]
 
 [build-dependencies]
 build_playerglobal = { path = "build_playerglobal" }

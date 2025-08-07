@@ -404,8 +404,10 @@ pub fn search_prototype<'gc>(
     let orig_proto = proto;
 
     while let Value::Object(p) = proto {
-        if depth == 255 {
-            return Err(Error::PrototypeRecursionLimit);
+        // Surgical fix for Ruffle bug: Reduce recursion limit to prevent LoginServlet/StatusServlet
+        // circular reference between sBaseURI and sBaseUri properties
+        if depth == 10 {
+            return Ok(None); // Return None instead of error to allow graceful fallback
         }
 
         if let Some(getter) = p.getter(name, activation) {

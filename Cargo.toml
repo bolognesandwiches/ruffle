@@ -101,6 +101,10 @@ fluent-templates = "0.13.0"
 lzma-rs = "0.3.0"
 tempfile = "3.19.1"
 tracing-wasm = "0.2.1"
+getrandom = { version = "0.3", features = ["wasm_js"] }
+# Force dependencies to use compatible versions
+ahash = "0.8.6"
+rand = "0.8.5"
 
 [workspace.lints.rust]
 # Clippy nightly often adds new/buggy lints that we want to ignore.
