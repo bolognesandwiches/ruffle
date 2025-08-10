@@ -20,6 +20,7 @@ gc-arena = { package = "ruffle_gc_arena", path = "../ruffle_gc_arena" }
 slotmap = { workspace = true }
 indexmap = { workspace = true }
 tracing = { workspace = true }
+log = { workspace = true }
 ruffle_render = { path = "../render", features = ["tessellator"] }
 ruffle_video = { path = "../video" }
 ruffle_macros = { path = "macros" }
@@ -48,6 +49,7 @@ dasp = { version = "0.11.0", features = ["interpolate", "interpolate-linear", "s
 symphonia = { version = "0.5.4", default-features = false, optional = true }
 enumset = "1.1.7"
 bytemuck = { workspace = true, features = ["derive"] }
+
 clap = { workspace = true, optional=true }
 realfft = "3.5.0"
 hashbrown = { version = "0.14.5", features = ["raw"] }
